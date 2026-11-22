@@ -102,6 +102,7 @@
   footer { padding: 4px 10px 10px; color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 6px; }
   footer label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   footer input { accent-color: var(--accent); margin: 0; }
+  footer select { margin-left: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 11px; padding: 1px 2px; }
 
   /* Ventana de conexión */
   dialog {
@@ -136,11 +137,11 @@
 <body>
 <header>
   <span class="dot" id="status-dot" title="Desconectado"></span>
-  <h1>Shaders</h1>
-  <button class="icon-btn" id="btn-refresh" title="Actualizar lista" aria-label="Actualizar lista">
+  <h1 data-i18n="title">Shaders</h1>
+  <button class="icon-btn" id="btn-refresh" data-i18n-title="refresh" data-i18n-aria="refresh">
     <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
   </button>
-  <button class="icon-btn" id="btn-settings" title="Conexión" aria-label="Conexión">
+  <button class="icon-btn" id="btn-settings" data-i18n-title="settings" data-i18n-aria="settings">
     <svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
   </button>
 </header>
@@ -150,28 +151,30 @@
 </main>
 
 <footer>
-  <label><input type="checkbox" id="show-others"> Mostrar otros shaders</label>
+  <label><input type="checkbox" id="show-others"> <span data-i18n="showOthers">Mostrar otros shaders</span></label>
+  <select id="lang" data-i18n-title="language" data-i18n-aria="language"><option value="es">ES</option><option value="en">EN</option></select>
 </footer>
 
 <dialog id="dlg">
   <form method="dialog" id="conn-form">
-    <h3>Conectar con OBS</h3>
-    <p>En OBS: Herramientas → Ajustes del servidor WebSocket. Activa el servidor y copia el puerto y la contraseña.</p>
+    <h3 data-i18n="dlgTitle">Conectar con OBS</h3>
+    <p data-i18n="dlgHelp">En OBS: Herramientas → Ajustes del servidor WebSocket. Activa el servidor y copia el puerto y la contraseña.</p>
     <div class="grid2">
-      <label class="field"><span>Host</span><input type="text" id="f-host" value="127.0.0.1" required></label>
-      <label class="field"><span>Puerto</span><input type="number" id="f-port" value="4455" min="1" max="65535" required></label>
+      <label class="field"><span data-i18n="host">Host</span><input type="text" id="f-host" value="127.0.0.1" required></label>
+      <label class="field"><span data-i18n="port">Puerto</span><input type="number" id="f-port" value="4455" min="1" max="65535" required></label>
     </div>
-    <label class="field"><span>Contraseña</span><input type="password" id="f-pass" autocomplete="off"></label>
-    <label class="check"><input type="checkbox" id="f-remember" checked> Recordar en este dock</label>
+    <label class="field"><span data-i18n="password">Contraseña</span><input type="password" id="f-pass" autocomplete="off"></label>
+    <label class="check"><input type="checkbox" id="f-remember" checked> <span data-i18n="remember">Recordar en este dock</span></label>
     <div class="error" id="f-error" role="alert"></div>
     <div class="actions">
-      <button type="button" class="btn link" id="f-forget">Olvidar datos</button>
-      <button type="button" class="btn" id="f-cancel">Cancelar</button>
-      <button type="submit" class="btn primary" id="f-connect">Conectar</button>
+      <button type="button" class="btn link" id="f-forget" data-i18n="forget">Olvidar datos</button>
+      <button type="button" class="btn" id="f-cancel" data-i18n="cancel">Cancelar</button>
+      <button type="submit" class="btn primary" id="f-connect" data-i18n="connect">Conectar</button>
     </div>
   </form>
 </dialog>
 
+<script src="i18n.js"></script>
 <script src="obsws.js"></script>
 <script src="shaders.js"></script>
 <script src="dock.js"></script>

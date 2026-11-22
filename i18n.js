@@ -1,0 +1,125 @@
+// Textos del dock en español e inglés. / Dock strings in Spanish and English.
+(function () {
+  'use strict';
+
+  const STR = {
+    es: {
+      title: 'Shaders',
+      refresh: 'Actualizar lista',
+      settings: 'Conexión',
+      showOthers: 'Mostrar otros shaders',
+      language: 'Idioma',
+      dlgTitle: 'Conectar con OBS',
+      dlgHelp: 'En OBS: Herramientas → Ajustes del servidor WebSocket. Activa el servidor y copia el puerto y la contraseña.',
+      host: 'Host',
+      port: 'Puerto',
+      password: 'Contraseña',
+      remember: 'Recordar en este dock',
+      forget: 'Olvidar datos',
+      cancel: 'Cancelar',
+      connect: 'Conectar',
+      forgotten: 'Datos olvidados.',
+      connecting: 'Conectando…',
+      disconnected: 'Desconectado',
+      connectedTo: 'Conectado a {0}',
+      reconnecting: 'Reconectando…',
+      obsDown: 'OBS no responde',
+      retryingEvery: 'Reintentando cada pocos segundos…',
+      lost: 'Se perdió la conexión con OBS',
+      retrying: 'Reintentando…',
+      noConnection: 'Sin conexión',
+      configure: 'Configura el puerto y la contraseña del WebSocket de OBS.',
+      noShaders: 'No hay shaders en esta colección',
+      hiddenOthers: 'Hay {0} shader(s) de otros autores; activa "Mostrar otros shaders".',
+      addOne: 'Agrega uno con Filtros → + → User-defined shader → Load shader text from file.',
+      inlineShader: 'shader escrito en el filtro',
+      turnOff: 'Apagar filtro',
+      turnOn: 'Encender filtro',
+      turnOnName: 'Encender {0}',
+      toStart: 'Llevar al principio',
+      play: 'Iniciar ({0} s)',
+      stop: 'Detener',
+      toEnd: 'Llevar al final',
+      progressOf: 'Progreso de {0}',
+      loop: 'Bucle',
+      loopTip: 'Repetir la secuencia sola (Reproducir en bucle)',
+      err_auth_required: 'OBS pide contraseña.',
+      err_auth_failed: 'Contraseña incorrecta.',
+      err_unreachable: 'No se pudo conectar. Revisa que OBS esté abierto y que el servidor WebSocket esté activado en ese puerto.',
+      err_no_crypto: 'Este navegador no permite la autenticación. Abre el dock como archivo local o desde 127.0.0.1.',
+      err_bad_url: 'Host o puerto no válidos.',
+    },
+    en: {
+      title: 'Shaders',
+      refresh: 'Refresh list',
+      settings: 'Connection',
+      showOthers: 'Show other shaders',
+      language: 'Language',
+      dlgTitle: 'Connect to OBS',
+      dlgHelp: 'In OBS: Tools → WebSocket Server Settings. Enable the server and copy the port and password.',
+      host: 'Host',
+      port: 'Port',
+      password: 'Password',
+      remember: 'Remember in this dock',
+      forget: 'Forget',
+      cancel: 'Cancel',
+      connect: 'Connect',
+      forgotten: 'Saved details removed.',
+      connecting: 'Connecting…',
+      disconnected: 'Disconnected',
+      connectedTo: 'Connected to {0}',
+      reconnecting: 'Reconnecting…',
+      obsDown: 'OBS is not responding',
+      retryingEvery: 'Retrying every few seconds…',
+      lost: 'Lost the connection to OBS',
+      retrying: 'Retrying…',
+      noConnection: 'Not connected',
+      configure: 'Set the OBS WebSocket port and password.',
+      noShaders: 'No shaders in this scene collection',
+      hiddenOthers: 'There are {0} shader(s) from other authors; turn on "Show other shaders".',
+      addOne: 'Add one with Filters → + → User-defined shader → Load shader text from file.',
+      inlineShader: 'shader typed into the filter',
+      turnOff: 'Turn filter off',
+      turnOn: 'Turn filter on',
+      turnOnName: 'Turn on {0}',
+      toStart: 'Go to start',
+      play: 'Play ({0} s)',
+      stop: 'Stop',
+      toEnd: 'Go to end',
+      progressOf: 'Progress of {0}',
+      loop: 'Loop',
+      loopTip: 'Repeat the sequence on its own (Loop playback)',
+      err_auth_required: 'OBS requires a password.',
+      err_auth_failed: 'Wrong password.',
+      err_unreachable: 'Could not connect. Check that OBS is open and the WebSocket server is enabled on that port.',
+      err_no_crypto: 'This browser does not allow authentication. Open the dock as a local file or from 127.0.0.1.',
+      err_bad_url: 'Invalid host or port.',
+    },
+  };
+
+  let lang = 'es';
+  try { lang = JSON.parse(localStorage.getItem('obsShaderDock.lang')) || ''; } catch { lang = ''; }
+  if (!STR[lang]) lang = (navigator.language || '').toLowerCase().startsWith('es') ? 'es' : 'en';
+
+  function t(key, ...args) {
+    const s = (STR[lang] && STR[lang][key]) || STR.es[key] || key;
+    return s.replace(/\{(\d)\}/g, (_, i) => (args[i] != null ? args[i] : ''));
+  }
+
+  // Aplica los textos fijos del HTML: data-i18n (texto), data-i18n-title, data-i18n-aria
+  function apply() {
+    document.documentElement.lang = lang;
+    for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+    for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+    for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  }
+
+  function setLang(next) {
+    if (!STR[next]) return;
+    lang = next;
+    try { localStorage.setItem('obsShaderDock.lang', JSON.stringify(lang)); } catch { /* sin almacenamiento */ }
+    apply();
+  }
+
+  window.I18N = { t, apply, setLang, get lang() { return lang; } };
+})();

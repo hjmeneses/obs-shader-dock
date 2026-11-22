@@ -16,6 +16,7 @@ Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-l
 - **Transiciones** (emblema): no aparecen, porque son stingers y no filtros.
 - La lista se actualiza sola cuando agregas, quitas o renombras filtros, fuentes o escenas. Si cambias el archivo `.shader` de un filtro, usa el botón de actualizar.
 - **Mostrar otros shaders** incluye los filtros *User-defined shader* que no son de estos repos.
+- **Idioma**: español o inglés con el selector ES/EN (la primera vez toma el idioma del sistema). Reconoce tanto los shaders en español como sus versiones en inglés de la carpeta `en/` de cada repo.
 
 ## Instalación
 
@@ -49,6 +50,7 @@ Edita `shaders.js` y agrega una línea con el nombre del archivo, la etiqueta, e
 | `index.html` | El dock: estilos y estructura |
 | `dock.js` | Búsqueda de filtros, controles y conexión |
 | `obsws.js` | Cliente mínimo de obs-websocket 5 (sin dependencias) |
+| `i18n.js` | Textos en español e inglés |
 | `shaders.js` | Lista de shaders reconocidos |
 
 Requiere OBS 28 o posterior (obs-websocket 5 integrado) y el plugin [obs-shaderfilter](https://github.com/exeldro/obs-shaderfilter).
@@ -63,7 +65,9 @@ A custom browser dock for **OBS Studio** that scans every scene and source for s
 - **Continuous effects**: on/off switch.
 - **Transitions** (stingers) are not listed.
 
-Install: enable the WebSocket server in OBS (**Tools → WebSocket Server Settings**), then add `file:///…/obs-shader-dock/index.html` under **View → Docks → Custom Browser Docks**. On first launch it asks for host, port and password; with *Recordar* checked they are saved in the dock's local storage (plain text, local profile only). No web server, no internet, no dependencies. UI labels are in Spanish.
+The UI is available in Spanish and English (ES/EN selector; the first time it follows the system language), and it recognizes both the Spanish shaders and their English versions from each repo's `en/` folder.
+
+Install: enable the WebSocket server in OBS (**Tools → WebSocket Server Settings**), then add `file:///…/obs-shader-dock/index.html` under **View → Docks → Custom Browser Docks**. On first launch it asks for host, port and password; with *Remember* checked they are saved in the dock's local storage (plain text, local profile only). No web server, no internet, no dependencies.
 
 To support another shader, add a line to `shaders.js`.
 

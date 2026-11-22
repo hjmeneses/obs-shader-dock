@@ -15,6 +15,7 @@
   ]);
 
   const $ = (id) => document.getElementById(id);
+  const t = I18N.t;
   const ws = new ObsWs();
   let items = [];                // filtros encontrados
   const anims = new Map();       // key → animación en curso
@@ -46,28 +47,28 @@
   const baseName = (path) => (path || '').split(/[\\/]/).pop().toLowerCase();
 
   // ------------------------------------------------------------------ estado de conexión
-  function setStatus(kind, text) {
+  // Se guardan las claves de texto (no el texto) para poder cambiar de idioma en vivo
+  let statusState = ['bad', 'disconnected', []];
+  let messageState = null;
+
+  function setStatus(kind, key, ...args) {
+    statusState = [kind, key, args];
     const dot = $('status-dot');
     dot.className = 'dot' + (kind === 'ok' ? ' ok' : kind === 'wait' ? ' wait' : '');
-    dot.title = text;
+    dot.title = t(key, ...args);
   }
 
-  function showMessage(title, text) {
+  function showMessage(titleKey, textKey, ...args) {
+    messageState = [titleKey, textKey, args];
     const list = $('list');
     list.replaceChildren();
     const div = el('div', 'empty');
-    div.append(el('b', null, title));
-    if (text) div.append(document.createTextNode(text));
+    div.append(el('b', null, t(titleKey)));
+    if (textKey) div.append(document.createTextNode(t(textKey, ...args)));
     list.append(div);
   }
 
-  const ERRORS = {
-    auth_required: 'OBS pide contraseña.',
-    auth_failed: 'Contraseña incorrecta.',
-    unreachable: 'No se pudo conectar. Revisa que OBS esté abierto y que el servidor WebSocket esté activado en ese puerto.',
-    no_crypto: 'Este navegador no permite la autenticación. Abre el dock como archivo local o desde 127.0.0.1.',
-    bad_url: 'Host o puerto no válidos.',
-  };
+  const errorText = (code) => (t('err_' + code) !== 'err_' + code ? t('err_' + code) : code);
 
   function currentConfig() {
     const saved = load('conn', null) || {};
@@ -84,17 +85,17 @@
   async function connect(conf, fromDialog) {
     clearTimeout(retryTimer);
     manualClose = false;
-    setStatus('wait', 'Conectando…');
-    if (!fromDialog) showMessage('Conectando…');
+    setStatus('wait', 'connecting');
+    if (!fromDialog) showMessage('connecting');
     try {
       await ws.connect(`ws://${conf.host}:${conf.port}`, conf.password);
     } catch (err) {
-      setStatus('bad', 'Desconectado');
-      const msg = ERRORS[err.message] || err.message;
+      setStatus('bad', 'disconnected');
+      const msg = errorText(err.message);
       if (fromDialog) {
         $('f-error').textContent = msg;
       } else if (err.message === 'unreachable') {
-        showMessage('OBS no responde', 'Reintentando cada pocos segundos…');
+        showMessage('obsDown', 'retryingEvery');
         retryTimer = setTimeout(() => connect(session || currentConfig(), false), RETRY_MS);
       } else {
         openDialog(msg);
@@ -107,7 +108,7 @@
       save('conn', { host: conf.host, port: conf.port, remember: false });
     }
     session = conf;
-    setStatus('ok', `Conectado a ${conf.host}:${conf.port}`);
+    setStatus('ok', 'connectedTo', `${conf.host}:${conf.port}`);
     if ($('dlg').open) $('dlg').close();
     await refresh();
     return true;
@@ -116,8 +117,8 @@
   ws.addEventListener('closed', () => {
     stopAll();
     if (manualClose) return;
-    setStatus('wait', 'Reconectando…');
-    showMessage('Se perdió la conexión con OBS', 'Reintentando…');
+    setStatus('wait', 'reconnecting');
+    showMessage('lost', 'retrying');
     retryTimer = setTimeout(() => connect(session || currentConfig(), false), RETRY_MS);
   });
 
@@ -152,7 +153,7 @@
     forget('conn');
     session = null;
     $('f-pass').value = '';
-    $('f-error').textContent = 'Datos olvidados.';
+    $('f-error').textContent = t('forgotten');
   });
   $('btn-settings').addEventListener('click', () => openDialog());
   $('btn-refresh').addEventListener('click', () => { if (ws.connected) refresh(); else connect(currentConfig(), false); });
@@ -160,6 +161,18 @@
   const showOthers = $('show-others');
   showOthers.checked = load('showOthers', false);
   showOthers.addEventListener('change', () => { save('showOthers', showOthers.checked); render(); });
+
+  // Idioma: cambia los textos fijos y vuelve a pintar la lista o el mensaje actual
+  const langSel = $('lang');
+  langSel.value = I18N.lang;
+  I18N.apply();
+  langSel.addEventListener('change', () => {
+    I18N.setLang(langSel.value);
+    setStatus(statusState[0], statusState[1], ...statusState[2]);
+    if (ws.connected && items.length) render();
+    else if (messageState) showMessage(messageState[0], messageState[1], ...messageState[2]);
+    else render();
+  });
 
   // ------------------------------------------------------------------ lista de filtros
   function scheduleRefresh() {
@@ -206,8 +219,8 @@
           filterName: f.filterName,
           enabled: f.filterEnabled,
           own: !!entry,
-          label: entry ? entry.label : f.filterName,
-          detail: entry ? entry.repo : (file || 'shader escrito en el filtro'),
+          entry,
+          detail: entry ? entry.repo : (file || null),
           type,
           duration: Number(s.duration) > 0 ? Number(s.duration) : (entry && entry.duration) || 8,
           progress: typeof s.progress === 'number' ? s.progress : 0,
@@ -255,9 +268,7 @@
     const visible = items.filter((i) => i.own || showOthers.checked);
     if (!visible.length) {
       const hidden = items.length - visible.length;
-      showMessage('No hay shaders en esta colección',
-        hidden ? `Hay ${hidden} shader(s) de otros autores; activa "Mostrar otros shaders".`
-               : 'Agrega uno con Filtros → + → User-defined shader → Load shader text from file.');
+      showMessage('noShaders', hidden ? 'hiddenOthers' : 'addOne', hidden);
       return;
     }
 
@@ -279,22 +290,26 @@
     list.replaceChildren(frag);
   }
 
+  const labelOf = (it) => (it.entry ? (I18N.lang === 'en' && it.entry.label_en) || it.entry.label : it.filterName);
+
   function renderFilter(it) {
+    const label = labelOf(it);
+    const detail = it.detail || t('inlineShader');
     const box = el('div', 'filter' + (it.enabled ? '' : ' off'));
     const row = el('div', 'row');
 
     const sw = el('label', 'switch');
-    sw.title = it.enabled ? 'Apagar filtro' : 'Encender filtro';
+    sw.title = it.enabled ? t('turnOff') : t('turnOn');
     const cb = el('input');
     cb.type = 'checkbox';
     cb.checked = it.enabled;
-    cb.setAttribute('aria-label', `Encender ${it.filterName}`);
+    cb.setAttribute('aria-label', t('turnOnName', it.filterName));
     cb.addEventListener('change', () => setEnabled(it, cb.checked, box, sw));
     sw.append(cb, el('span'));
 
     const name = el('div', 'name');
-    const title = el('b', null, it.label);
-    const sub = it.filterName !== it.label ? `${it.filterName} · ${it.detail}` : it.detail;
+    const title = el('b', null, label);
+    const sub = it.filterName !== label ? `${it.filterName} · ${detail}` : detail;
     title.title = it.filterName;
     name.append(title, el('small', null, sub));
     row.append(sw, name);
@@ -302,22 +317,22 @@
 
     if (it.type === 'sequence') {
       const controls = el('div', 'controls');
-      const bStart = iconButton('start', 'Llevar al principio');
+      const bStart = iconButton('start', t('toStart'));
       const playing = anims.has(it.key);
-      const bPlay = iconButton(playing ? 'stop' : 'play', playing ? 'Detener' : `Iniciar (${fmt(it.duration)} s)`, 'play' + (playing ? ' playing' : ''));
-      const bEnd = iconButton('end', 'Llevar al final');
+      const bPlay = iconButton(playing ? 'stop' : 'play', playing ? t('stop') : t('play', fmt(it.duration)), 'play' + (playing ? ' playing' : ''));
+      const bEnd = iconButton('end', t('toEnd'));
       const range = el('input');
       range.type = 'range';
       range.min = 0; range.max = 100; range.step = 0.1;
       range.value = it.progress;
-      range.setAttribute('aria-label', `Progreso de ${it.filterName}`);
+      range.setAttribute('aria-label', t('progressOf', it.filterName));
       const pct = el('span', 'pct', `${Math.round(it.progress)}%`);
       const loop = el('label', 'loop');
-      loop.title = 'Repetir la secuencia sola (Reproducir en bucle)';
+      loop.title = t('loopTip');
       const loopCb = el('input');
       loopCb.type = 'checkbox';
       loopCb.checked = it.autoPlay;
-      loop.append(loopCb, document.createTextNode('Bucle'));
+      loop.append(loopCb, document.createTextNode(t('loop')));
 
       bStart.addEventListener('click', () => jump(it, 0));
       bEnd.addEventListener('click', () => jump(it, 100));
@@ -345,7 +360,7 @@
   function showPlaying(it, playing) {
     const r = refs.get(it.key);
     if (!r) return;
-    setIcon(r.bPlay, playing ? 'stop' : 'play', playing ? 'Detener' : `Iniciar (${fmt(it.duration)} s)`);
+    setIcon(r.bPlay, playing ? 'stop' : 'play', playing ? t('stop') : t('play', fmt(it.duration)));
     r.bPlay.classList.toggle('playing', playing);
   }
 
@@ -368,7 +383,7 @@
   function setEnabled(it, on, box, sw) {
     it.enabled = on;
     box.classList.toggle('off', !on);
-    sw.title = on ? 'Apagar filtro' : 'Encender filtro';
+    sw.title = on ? t('turnOff') : t('turnOn');
     ws.call('SetSourceFilterEnabled', { sourceName: it.sourceName, filterName: it.filterName, filterEnabled: on })
       .catch((err) => console.warn('[shader-dock]', err.message));
   }
@@ -450,5 +465,5 @@
   // ------------------------------------------------------------------ arranque
   const conf = currentConfig();
   if (conf.known) connect(conf, false);
-  else { showMessage('Sin conexión', 'Configura el puerto y la contraseña del WebSocket de OBS.'); openDialog(); }
+  else { showMessage('noConnection', 'configure'); openDialog(); }
 })();
