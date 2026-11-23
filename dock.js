@@ -116,6 +116,8 @@
 
   ws.addEventListener('closed', () => {
     stopAll();
+    $('count-fx').textContent = '';
+    $('count-geo').textContent = '';
     if (manualClose) return;
     setStatus('wait', 'reconnecting');
     showMessage('lost', 'retrying');
@@ -272,12 +274,50 @@
     btn.setAttribute('aria-label', title);
   }
 
+  // ------------------------------------------------------------------ pestañas
+  const isGeo = (i) => i.type === '3d' || i.type === 'corners';
+  let tab = load('tab', 'fx') === 'geo' ? 'geo' : 'fx';
+  const tabButtons = [...document.querySelectorAll('.tab')];
+
+  function setTab(next, focus) {
+    tab = next;
+    save('tab', tab);
+    for (const b of tabButtons) {
+      const on = b.dataset.tab === tab;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+    }
+    if (ws.connected) render();
+  }
+  for (const b of tabButtons) {
+    b.addEventListener('click', () => setTab(b.dataset.tab));
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      setTab(tab === 'fx' ? 'geo' : 'fx', true);
+    });
+  }
+  setTab(tab);
+
+  function updateCounts(visible) {
+    const geo = visible.filter(isGeo).length;
+    $('count-fx').textContent = ws.connected ? String(visible.length - geo) : '';
+    $('count-geo').textContent = ws.connected ? String(geo) : '';
+  }
+
   function render() {
     refs.clear();
     const list = $('list');
-    const visible = items.filter((i) => i.own || showOthers.checked);
+    const all = items.filter((i) => i.own || showOthers.checked);
+    updateCounts(all);
+    const visible = all.filter((i) => isGeo(i) === (tab === 'geo'));
     if (!visible.length) {
-      const hidden = items.length - visible.length;
+      if (tab === 'geo') {
+        showMessage('noGeometry', 'addGeometry');
+        return;
+      }
+      const hidden = items.filter((i) => !isGeo(i)).length - visible.length;
       showMessage('noShaders', hidden ? 'hiddenOthers' : 'addOne', hidden);
       return;
     }

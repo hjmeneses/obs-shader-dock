@@ -8,6 +8,8 @@ Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-l
 
 ## Qué hace
 
+Dos pestañas: **Efectos** (secuencias y efectos continuos) y **Geometría** (3D Effect y Perspectiva). Cada una muestra cuántos filtros tiene y el dock recuerda la última que abriste.
+
 - **Secuencias** (cañón, sangre, túnel, dimensión, teletransportador, títulos voladores):
   - ▶ **Iniciar**: apaga el bucle y corre la secuencia una vez, en la duración del filtro. El mismo botón la detiene.
   - ⏮ **Al principio** y ⏭ **Al final**: llevan el Progreso a 0 o a 100.
@@ -68,7 +70,7 @@ Requiere OBS 28 o posterior (obs-websocket 5 integrado) y el plugin [obs-shaderf
 
 ## English
 
-A custom browser dock for **OBS Studio** that scans every scene and source for shader filters from my repos and gives each one controls:
+A custom browser dock for **OBS Studio** that scans every scene and source for shader filters from my repos and gives each one controls, split into two tabs, **Effects** and **Geometry**:
 
 - **Sequences**: play once over the filter's duration (stops the loop), jump to start or end, scrub the progress bar, toggle loop.
 - **Continuous effects**: on/off switch.

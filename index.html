@@ -28,13 +28,28 @@
   }
   button, input { font: inherit; color: inherit; }
 
+  .top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
   header {
-    position: sticky; top: 0; z-index: 5;
     display: flex; align-items: center; gap: 8px;
-    padding: 8px 10px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--line);
+    padding: 8px 10px 4px;
   }
+
+  /* Pestañas: Efectos / Geometría */
+  .tabs { display: flex; gap: 2px; padding: 0 8px; }
+  .tab {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 6px 8px; background: transparent; border: 0; border-bottom: 2px solid transparent;
+    color: var(--muted); cursor: pointer; font-weight: 600; font-size: 12px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+  .tab .count {
+    min-width: 18px; padding: 0 5px; border-radius: 9px; font-size: 10px; line-height: 16px;
+    background: var(--panel-2); color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .tab[aria-selected="true"] .count { background: var(--accent); color: #fff; }
+  .tab .count:empty { display: none; }
   header h1 { flex: 1; margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); flex: none; }
   .dot.ok { background: var(--ok); }
@@ -173,6 +188,7 @@
 </style>
 </head>
 <body>
+<div class="top">
 <header>
   <span class="dot" id="status-dot" title="Desconectado"></span>
   <h1 data-i18n="title">Shaders</h1>
@@ -183,8 +199,13 @@
     <svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
   </button>
 </header>
+<nav class="tabs" role="tablist">
+  <button class="tab" role="tab" id="tab-fx" data-tab="fx" aria-controls="list" aria-selected="true"><span data-i18n="tabFx">Efectos</span><span class="count" id="count-fx"></span></button>
+  <button class="tab" role="tab" id="tab-geo" data-tab="geo" aria-controls="list" aria-selected="false"><span data-i18n="tabGeo">Geometría</span><span class="count" id="count-geo"></span></button>
+</nav>
+</div>
 
-<main id="list">
+<main id="list" role="tabpanel">
   <div class="empty"><b>Conectando…</b></div>
 </main>
 
