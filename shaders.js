@@ -5,6 +5,8 @@
 //               has Progress and Loop: the dock shows Play / Start / End and a progress bar
 //   continuous  corre solo: el dock da encender / apagar  ·  runs on its own: on / off switch
 //   stinger     transición: el dock no lo muestra  ·  transition: not listed
+//   corners     esquinas tl/tr/br/bl: el dock da un pad con anclas para arrastrar
+//               tl/tr/br/bl corners: the dock shows a pad with draggable anchors
 //
 // "files" incluye la versión en español y la de la carpeta en/. "duration" es el valor por
 // defecto del shader, por si el filtro no lo tiene guardado en sus ajustes.
@@ -41,4 +43,7 @@ window.SHADER_MANIFEST = [
 
   { repo: 'obs-modern-tv', label: 'Glitch', label_en: 'Glitch', type: 'continuous',
     files: ['glitch.shader'] },
+
+  { repo: 'obs-shader-dock', label: 'Perspectiva', label_en: 'Perspective', type: 'corners',
+    files: ['perspectiva.shader', 'perspective.shader'] },
 ];

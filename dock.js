@@ -231,6 +231,7 @@
           duration: Number(s.duration) > 0 ? Number(s.duration) : (entry && entry.duration) || 8,
           progress: typeof s.progress === 'number' ? s.progress : 0,
           autoPlay: typeof s.auto_play === 'boolean' ? s.auto_play : true,
+          corners: type === 'corners' ? CORNERS.read(s) : null,
         });
       }
     }
@@ -355,9 +356,276 @@
       refs.set(it.key, { range, pct, bPlay, loopCb });
     } else if (it.type === '3d') {
       box.append(FX3D.pad(it));
+    } else if (it.type === 'corners') {
+      box.append(CORNERS.pad(it));
     }
     return box;
   }
+
+  // Envía solo el último valor de cada filtro: si OBS no ha contestado, el siguiente reemplaza al pendiente
+  const sendQueue = new Map();
+  function sendLatest(it, settings) {
+    const q = sendQueue.get(it.key) || { busy: false, pending: null };
+    sendQueue.set(it.key, q);
+    q.pending = settings;
+    if (q.busy) return;
+    const flush = () => {
+      if (!q.pending) { q.busy = false; return; }
+      const s = q.pending;
+      q.pending = null;
+      q.busy = true;
+      send(it, s).finally(flush);
+    };
+    flush();
+  }
+
+  // ------------------------------------------------------------------ Perspectiva (corner pin)
+  // Pad con la imagen de la fuente y cuatro anclas, como Distorsionar / Perspectiva en Photoshop:
+  //   arrastrar una esquina = moverla libre · Shift = perspectiva (la esquina vecina se mueve en espejo)
+  //   arrastrar dentro o Alt = mover todo · doble clic = reiniciar
+  const CORNERS = (() => {
+    const KEYS = [['tl_x', 'tl_y'], ['tr_x', 'tr_y'], ['br_x', 'br_y'], ['bl_x', 'bl_y']];
+    const DEF = [[0, 0], [100, 0], [100, 100], [0, 100]];
+    const VIEW_MIN = -30;            // el pad muestra de -30 % a 130 % para poder sacar esquinas
+    const VIEW_SPAN = 160;
+    const HIT = 12;                  // radio de las anclas para atraparlas, en px CSS
+    const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const clampPct = (v) => Math.min(150, Math.max(-50, v));
+
+    const read = (s) => KEYS.map(([kx, ky], i) => [num(s[kx], DEF[i][0]), num(s[ky], DEF[i][1])]);
+    const settingsOf = (c) => {
+      const o = {};
+      KEYS.forEach(([kx, ky], i) => { o[kx] = r2(c[i][0]); o[ky] = r2(c[i][1]); });
+      return o;
+    };
+
+    // La misma homografía que el shader (cuadrado unitario → esquinas), para dibujar la rejilla
+    function homography(p) {
+      const [p0, p1, p2, p3] = p;
+      const sx = p0[0] - p1[0] + p2[0] - p3[0], sy = p0[1] - p1[1] + p2[1] - p3[1];
+      const d1x = p1[0] - p2[0], d1y = p1[1] - p2[1], d2x = p3[0] - p2[0], d2y = p3[1] - p2[1];
+      const den = d1x * d2y - d2x * d1y;
+      let g = 0, h = 0;
+      if (Math.abs(den) > 1e-9) { g = (sx * d2y - d2x * sy) / den; h = (d1x * sy - sx * d1y) / den; }
+      const a = p1[0] - p0[0] + g * p1[0], b = p3[0] - p0[0] + h * p3[0];
+      const d = p1[1] - p0[1] + g * p1[1], e = p3[1] - p0[1] + h * p3[1];
+      return (u, v) => {
+        const w = g * u + h * v + 1;
+        return [(a * u + b * v + p0[0]) / w, (d * u + e * v + p0[1]) / w];
+      };
+    }
+
+    function inside(pt, c) {
+      // Punto dentro del cuadrilátero (convexo o no): regla par-impar
+      let ins = false;
+      for (let i = 0, j = 3; i < 4; j = i++) {
+        const [xi, yi] = c[i], [xj, yj] = c[j];
+        if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) ins = !ins;
+      }
+      return ins;
+    }
+
+    function pad(it) {
+      const wrapEl = el('div', 'cp');
+      const canvas = el('canvas', 'cp-canvas');
+      canvas.tabIndex = 0;
+      canvas.title = t('cpHelp');
+      canvas.setAttribute('aria-label', t('cpAria', it.filterName));
+      const out = el('div', 'fx3d-out');
+      const reset = iconButton('reset', t('cpReset'));
+      const foot = el('div', 'fx3d-foot');
+      foot.append(out, reset);
+      wrapEl.append(canvas, foot);
+
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      let aspect = 9 / 16;           // alto / ancho de la fuente; se corrige con la captura
+      let hover = -1;
+      let drag = null;
+
+      const size = () => {
+        const w = canvas.clientWidth || 280;
+        return { w, h: Math.round(w * aspect) };
+      };
+      const toPx = (pt, s) => [((pt[0] - VIEW_MIN) / VIEW_SPAN) * s.w, ((pt[1] - VIEW_MIN) / VIEW_SPAN) * s.h];
+      const toPct = (x, y, s) => [(x / s.w) * VIEW_SPAN + VIEW_MIN, (y / s.h) * VIEW_SPAN + VIEW_MIN];
+
+      function draw() {
+        const s = size();
+        const dpr = window.devicePixelRatio || 1;
+        if (canvas.width !== Math.round(s.w * dpr) || canvas.height !== Math.round(s.h * dpr)) {
+          canvas.width = Math.round(s.w * dpr);
+          canvas.height = Math.round(s.h * dpr);
+          canvas.style.height = s.h + 'px';
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const css = getComputedStyle(document.documentElement);
+        const col = (n) => css.getPropertyValue(n).trim();
+        ctx.fillStyle = col('--bg');
+        ctx.fillRect(0, 0, s.w, s.h);
+
+        // La captura ya trae el filtro aplicado: ocupa el recuadro de la fuente (0..100 %)
+        const [x0, y0] = toPx([0, 0], s);
+        const [x1, y1] = toPx([100, 100], s);
+        if (img.complete && img.naturalWidth) ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = col('--line');
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, y0 + 0.5, x1 - x0 - 1, y1 - y0 - 1);
+        ctx.setLineDash([]);
+
+        // Rejilla en perspectiva 4×4 y contorno
+        const c = it.corners;
+        const H = homography(c);
+        ctx.strokeStyle = 'rgba(255,255,255,.6)';
+        ctx.shadowColor = 'rgba(0,0,0,.7)';
+        ctx.shadowBlur = 2;
+        ctx.beginPath();
+        for (let k = 1; k < 4; k++) {
+          const u = k / 4;
+          for (const [a, b] of [[[u, 0], [u, 1]], [[0, u], [1, u]]]) {
+            const pa = toPx(H(...a), s), pb = toPx(H(...b), s);
+            ctx.moveTo(pa[0], pa[1]);
+            ctx.lineTo(pb[0], pb[1]);
+          }
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = col('--accent');
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        c.forEach((p, i) => { const q = toPx(p, s); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+        ctx.closePath();
+        ctx.stroke();
+
+        // Anclas
+        c.forEach((p, i) => {
+          const [x, y] = toPx(p, s);
+          const on = drag ? drag.idx === i || drag.partner === i || drag.idx === 'all' : hover === i;
+          ctx.fillStyle = on ? col('--accent') : '#fff';
+          ctx.strokeStyle = on ? '#fff' : col('--accent');
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(x - 4.5, y - 4.5, 9, 9);
+          ctx.strokeRect(x - 4.5, y - 4.5, 9, 9);
+        });
+
+        out.textContent = c.map((p) => `${Math.round(p[0])},${Math.round(p[1])}`).join('  ');
+      }
+
+      let shotTimer = 0;
+      function refreshShot(delay) {
+        clearTimeout(shotTimer);
+        shotTimer = setTimeout(() => {
+          ws.call('GetSourceScreenshot', { sourceName: it.sourceName, imageFormat: 'jpg', imageWidth: 480, imageCompressionQuality: 80 })
+            .then((r) => { if (r.imageData) img.src = r.imageData; })
+            .catch(() => { /* sin captura: solo anclas y rejilla */ });
+        }, delay);
+      }
+      img.onload = () => {
+        if (img.naturalWidth) aspect = img.naturalHeight / img.naturalWidth;
+        draw();
+      };
+
+      const local = (e) => {
+        const b = canvas.getBoundingClientRect();
+        return [e.clientX - b.left, e.clientY - b.top];
+      };
+      const nearest = (x, y, s) => {
+        let best = -1, bd = HIT;
+        it.corners.forEach((p, i) => {
+          const [px, py] = toPx(p, s);
+          const d = Math.hypot(px - x, py - y);
+          if (d <= bd) { bd = d; best = i; }
+        });
+        return best;
+      };
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const s = size();
+        const [x, y] = local(e);
+        let idx = e.altKey ? -1 : nearest(x, y, s);
+        if (idx < 0) {
+          if (!e.altKey && !inside(toPct(x, y, s), it.corners)) return;
+          idx = 'all';
+        }
+        canvas.setPointerCapture(e.pointerId);
+        drag = { idx, partner: -1, start: toPct(x, y, s), base: it.corners.map((p) => p.slice()) };
+        it.dragging = true;
+        canvas.classList.add('active');
+        draw();
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        const s = size();
+        const [x, y] = local(e);
+        if (!drag) {
+          const h = nearest(x, y, s);
+          if (h !== hover) { hover = h; draw(); }
+          canvas.style.cursor = h >= 0 ? 'crosshair' : inside(toPct(x, y, s), it.corners) ? 'move' : 'default';
+          return;
+        }
+        const p = toPct(x, y, s);
+        const dx = p[0] - drag.start[0];
+        const dy = p[1] - drag.start[1];
+        const c = drag.base.map((q) => q.slice());
+        drag.partner = -1;
+        if (drag.idx === 'all') {
+          for (const q of c) { q[0] += dx; q[1] += dy; }
+        } else if (e.shiftKey) {
+          // Perspectiva: la esquina se mueve sobre un eje y su vecina del mismo lado, en espejo
+          const i = drag.idx;
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            const j = [1, 0, 3, 2][i];           // misma fila: tl↔tr, br↔bl
+            c[i][0] += dx;
+            c[j][0] -= dx;
+            drag.partner = j;
+          } else {
+            const j = [3, 2, 1, 0][i];           // misma columna: tl↔bl, tr↔br
+            c[i][1] += dy;
+            c[j][1] -= dy;
+            drag.partner = j;
+          }
+        } else {
+          c[drag.idx][0] += dx;
+          c[drag.idx][1] += dy;
+        }
+        it.corners = c.map((q) => [clampPct(q[0]), clampPct(q[1])]);
+        draw();
+        sendLatest(it, settingsOf(it.corners));
+      });
+
+      const end = () => {
+        if (!drag) return;
+        drag = null;
+        it.dragging = false;
+        canvas.classList.remove('active');
+        draw();
+        refreshShot(250);
+      };
+      canvas.addEventListener('pointerup', end);
+      canvas.addEventListener('pointercancel', end);
+      canvas.addEventListener('pointerleave', () => { if (!drag && hover !== -1) { hover = -1; draw(); } });
+
+      const zero = () => {
+        it.corners = DEF.map((q) => q.slice());
+        draw();
+        sendLatest(it, settingsOf(it.corners));
+        refreshShot(250);
+      };
+      canvas.addEventListener('dblclick', zero);
+      reset.addEventListener('click', zero);
+
+      refs.set(it.key, { show: () => { draw(); refreshShot(250); } });
+      requestAnimationFrame(draw);
+      refreshShot(0);
+      if (window.ResizeObserver) new ResizeObserver(() => draw()).observe(canvas);
+      return wrapEl;
+    }
+
+    return { read, pad };
+  })();
 
   // ------------------------------------------------------------------ 3D Effect (Exeldro)
   // Pad para girar el filtro "3D Effect" arrastrando con el mouse:
@@ -388,24 +656,11 @@
       };
     }
 
-    // Envía solo el último valor: si OBS no ha contestado, el siguiente cuadro reemplaza al pendiente
-    const queue = new Map();
     function push(it) {
-      const q = queue.get(it.key) || { busy: false, pending: null };
-      queue.set(it.key, q);
-      q.pending = {
+      sendLatest(it, {
         rot_x: r2(it.rx), rot_y: r2(it.ry), rot_z: r2(it.rz),
         pos_x: Math.round(it.px), pos_y: Math.round(it.py), pos_z: Math.round(it.pz),
-      };
-      if (q.busy) return;
-      const flush = () => {
-        if (!q.pending) { q.busy = false; return; }
-        const s = q.pending;
-        q.pending = null;
-        q.busy = true;
-        send(it, s).finally(flush);
-      };
-      flush();
+      });
     }
 
     function readout(it, out) {
@@ -502,9 +757,15 @@
 
   // Si los sliders de OBS cambian el 3D Effect, el pad se pone al día (salvo mientras se arrastra)
   function onFilterSettings(d) {
-    const it = items.find((i) => i.type === '3d' && i.sourceName === d.sourceName && i.filterName === d.filterName);
+    const it = items.find((i) => (i.type === '3d' || i.type === 'corners') && i.sourceName === d.sourceName && i.filterName === d.filterName);
     if (!it || it.dragging) return;
     const s = d.filterSettings || {};
+    if (it.type === 'corners') {
+      it.corners = CORNERS.read(s);
+      const r = refs.get(it.key);
+      if (r && r.show) r.show();
+      return;
+    }
     const num = (v, f) => (typeof v === 'number' && isFinite(v) ? v : f);
     it.rx = num(s.rot_x, 0); it.ry = num(s.rot_y, 0); it.rz = num(s.rot_z, 0);
     it.px = num(s.pos_x, 0); it.py = num(s.pos_y, 0); it.pz = num(s.pos_z, 0);
