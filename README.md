@@ -14,6 +14,10 @@ Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-l
   - Una barra para mover el Progreso a mano, y la casilla **Bucle**.
 - **Efectos continuos** (liquid glass, glitch, títulos con siluetas): interruptor para encender y apagar.
 - **Transiciones** (emblema): no aparecen, porque son stingers y no filtros.
+- **3D Effect** (el filtro [3D Effect](https://github.com/exeldro/obs-3d-effect) de Exeldro): un pad para girarlo con el mouse.
+  - Arrastrar gira en X/Y; con **Shift** gira en Z; con **Ctrl** lo mueve; la rueda lo acerca o aleja (posición Z).
+  - Doble clic o el botón ↺ lo regresan a 0. Con el pad enfocado, las flechas giran de 5° en 5°.
+  - Si mueves los sliders del filtro en OBS, el pad se pone al día.
 - La lista se actualiza sola cuando agregas, quitas o renombras filtros, fuentes o escenas. Si cambias el archivo `.shader` de un filtro, usa el botón de actualizar.
 - **Mostrar otros shaders** incluye los filtros *User-defined shader* que no son de estos repos.
 - **Idioma**: español o inglés con el selector ES/EN (la primera vez toma el idioma del sistema). Reconoce tanto los shaders en español como sus versiones en inglés de la carpeta `en/` de cada repo.
@@ -64,6 +68,7 @@ A custom browser dock for **OBS Studio** that scans every scene and source for s
 - **Sequences**: play once over the filter's duration (stops the loop), jump to start or end, scrub the progress bar, toggle loop.
 - **Continuous effects**: on/off switch.
 - **Transitions** (stingers) are not listed.
+- **3D Effect** (Exeldro's [3D Effect](https://github.com/exeldro/obs-3d-effect) filter): a pad to rotate it with the mouse. Drag rotates X/Y, **Shift** rotates Z, **Ctrl** moves it, the wheel changes Z position; double-click or ↺ resets it. Changes made with the filter's sliders in OBS show up in the pad.
 
 The UI is available in Spanish and English (ES/EN selector; the first time it follows the system language), and it recognizes both the Spanish shaders and their English versions from each repo's `en/` folder.
 

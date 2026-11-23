@@ -123,7 +123,9 @@
   });
 
   ws.addEventListener('obs-event', (ev) => {
-    if (REFRESH_EVENTS.has(ev.detail.eventType)) scheduleRefresh();
+    const d = ev.detail;
+    if (REFRESH_EVENTS.has(d.eventType)) scheduleRefresh();
+    else if (d.eventType === 'SourceFilterSettingsChanged') onFilterSettings(d.eventData || {});
   });
 
   // ------------------------------------------------------------------ ventana de conexión
@@ -207,6 +209,10 @@
     const next = [];
     for (const { sourceName, filters } of lists) {
       for (const f of filters) {
+        if (f.filterKind === FX3D.kind) {
+          next.push(FX3D.item(sourceName, f));
+          continue;
+        }
         if (!String(f.filterKind).startsWith('shader_filter')) continue;
         const s = f.filterSettings || {};
         const file = s.from_file ? baseName(s.shader_file_name) : '';
@@ -247,6 +253,7 @@
     play: 'M8 5v14l11-7z',
     stop: 'M6 6h12v12H6z',
     end: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
+    reset: 'M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z',
   };
   function iconButton(icon, title, cls) {
     const b = el('button', 'icon-btn' + (cls ? ' ' + cls : ''));
@@ -290,7 +297,10 @@
     list.replaceChildren(frag);
   }
 
-  const labelOf = (it) => (it.entry ? (I18N.lang === 'en' && it.entry.label_en) || it.entry.label : it.filterName);
+  const labelOf = (it) => {
+    if (it.type === '3d') return t('fx3d');
+    return it.entry ? (I18N.lang === 'en' && it.entry.label_en) || it.entry.label : it.filterName;
+  };
 
   function renderFilter(it) {
     const label = labelOf(it);
@@ -343,8 +353,163 @@
       controls.append(bStart, bPlay, bEnd, range, pct, loop);
       box.append(controls);
       refs.set(it.key, { range, pct, bPlay, loopCb });
+    } else if (it.type === '3d') {
+      box.append(FX3D.pad(it));
     }
     return box;
+  }
+
+  // ------------------------------------------------------------------ 3D Effect (Exeldro)
+  // Pad para girar el filtro "3D Effect" arrastrando con el mouse:
+  //   arrastrar = rotación X/Y · Shift + arrastrar = rotación Z · Ctrl + arrastrar = mover X/Y
+  //   rueda = acercar/alejar (posición Z) · doble clic = volver a 0
+  const FX3D = (() => {
+    const DEG_PER_PX = 0.5;
+    const MOVE_PX_PER_PX = 4;
+    const WHEEL_Z = 40;
+    const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+    const wrap = (a) => ((((a + 180) % 360) + 360) % 360) - 180;   // siempre en -180..180, como los sliders
+    const r2 = (v) => Math.round(v * 100) / 100;
+
+    function item(sourceName, f) {
+      const s = f.filterSettings || {};
+      return {
+        key: sourceName + '\u0000' + f.filterName,
+        sourceName,
+        filterName: f.filterName,
+        enabled: f.filterEnabled,
+        own: true,
+        entry: null,
+        detail: 'Exeldro',
+        type: '3d',
+        rx: num(s.rot_x, 0), ry: num(s.rot_y, 0), rz: num(s.rot_z, 0),
+        px: num(s.pos_x, 0), py: num(s.pos_y, 0), pz: num(s.pos_z, 0),
+        dragging: false,
+      };
+    }
+
+    // Envía solo el último valor: si OBS no ha contestado, el siguiente cuadro reemplaza al pendiente
+    const queue = new Map();
+    function push(it) {
+      const q = queue.get(it.key) || { busy: false, pending: null };
+      queue.set(it.key, q);
+      q.pending = {
+        rot_x: r2(it.rx), rot_y: r2(it.ry), rot_z: r2(it.rz),
+        pos_x: Math.round(it.px), pos_y: Math.round(it.py), pos_z: Math.round(it.pz),
+      };
+      if (q.busy) return;
+      const flush = () => {
+        if (!q.pending) { q.busy = false; return; }
+        const s = q.pending;
+        q.pending = null;
+        q.busy = true;
+        send(it, s).finally(flush);
+      };
+      flush();
+    }
+
+    function readout(it, out) {
+      out.textContent = `X ${Math.round(it.rx)}°  Y ${Math.round(it.ry)}°  Z ${Math.round(it.rz)}°` +
+        (it.px || it.py || it.pz ? `   ·   ${Math.round(it.px)}, ${Math.round(it.py)}, ${Math.round(it.pz)} px` : '');
+    }
+
+    // Plano de referencia con la misma rotación (CSS 3D). OBS y CSS usan y hacia abajo y la regla
+    // de la mano derecha. El filtro apila rot X, Y, Z en la pila de matrices, así que al vértice se
+    // le aplica Z, luego Y, luego X; en CSS "rotateX rotateY rotateZ" da exactamente ese orden.
+    function preview(it, card) {
+      card.style.transform = `rotateX(${it.rx}deg) rotateY(${it.ry}deg) rotateZ(${it.rz}deg)`;
+    }
+
+    function pad(it) {
+      const wrapEl = el('div', 'fx3d');
+      const area = el('div', 'fx3d-pad');
+      area.tabIndex = 0;
+      area.title = t('fx3dHelp');
+      area.setAttribute('aria-label', t('fx3dAria', it.filterName));
+      const stage = el('div', 'fx3d-stage');
+      const card = el('div', 'fx3d-card');
+      stage.append(card);
+      area.append(stage);
+      const out = el('div', 'fx3d-out');
+      const reset = iconButton('reset', t('fx3dReset'));
+      const foot = el('div', 'fx3d-foot');
+      foot.append(out, reset);
+      wrapEl.append(area, foot);
+
+      const show = () => { readout(it, out); preview(it, card); };
+      show();
+      refs.set(it.key, { show });
+
+      let last = null;
+      area.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        area.setPointerCapture(e.pointerId);
+        last = { x: e.clientX, y: e.clientY };
+        it.dragging = true;
+        area.classList.add('active');
+      });
+      area.addEventListener('pointermove', (e) => {
+        if (!last) return;
+        const dx = e.clientX - last.x;
+        const dy = e.clientY - last.y;
+        last = { x: e.clientX, y: e.clientY };
+        if (e.ctrlKey) {
+          it.px += dx * MOVE_PX_PER_PX;
+          it.py += dy * MOVE_PX_PER_PX;
+        } else if (e.shiftKey) {
+          it.rz = wrap(it.rz + dx * DEG_PER_PX);
+        } else {
+          it.ry = wrap(it.ry + dx * DEG_PER_PX);
+          it.rx = wrap(it.rx + dy * DEG_PER_PX);
+        }
+        show();
+        push(it);
+      });
+      const end = () => { last = null; it.dragging = false; area.classList.remove('active'); };
+      area.addEventListener('pointerup', end);
+      area.addEventListener('pointercancel', end);
+      area.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        it.pz += (e.deltaY < 0 ? 1 : -1) * WHEEL_Z;
+        show();
+        push(it);
+      }, { passive: false });
+      const zero = () => {
+        it.rx = it.ry = it.rz = 0;
+        it.px = it.py = it.pz = 0;
+        show();
+        push(it);
+      };
+      area.addEventListener('dblclick', zero);
+      reset.addEventListener('click', zero);
+      // Flechas: 5° por pulsación (Shift: eje Z)
+      area.addEventListener('keydown', (e) => {
+        const step = 5;
+        const k = e.key;
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) return;
+        e.preventDefault();
+        if (e.shiftKey && (k === 'ArrowLeft' || k === 'ArrowRight')) it.rz = wrap(it.rz + (k === 'ArrowRight' ? step : -step));
+        else if (k === 'ArrowLeft' || k === 'ArrowRight') it.ry = wrap(it.ry + (k === 'ArrowRight' ? step : -step));
+        else it.rx = wrap(it.rx + (k === 'ArrowDown' ? step : -step));
+        show();
+        push(it);
+      });
+      return wrapEl;
+    }
+
+    return { kind: '3d_effect_filter', item, pad };
+  })();
+
+  // Si los sliders de OBS cambian el 3D Effect, el pad se pone al día (salvo mientras se arrastra)
+  function onFilterSettings(d) {
+    const it = items.find((i) => i.type === '3d' && i.sourceName === d.sourceName && i.filterName === d.filterName);
+    if (!it || it.dragging) return;
+    const s = d.filterSettings || {};
+    const num = (v, f) => (typeof v === 'number' && isFinite(v) ? v : f);
+    it.rx = num(s.rot_x, 0); it.ry = num(s.rot_y, 0); it.rz = num(s.rot_z, 0);
+    it.px = num(s.pos_x, 0); it.py = num(s.pos_y, 0); it.pz = num(s.pos_z, 0);
+    const r = refs.get(it.key);
+    if (r && r.show) r.show();
   }
 
   const fmt = (n) => (Math.round(n * 10) / 10).toString();
