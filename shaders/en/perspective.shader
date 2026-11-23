@@ -3,6 +3,10 @@
 // Perspective in Photoshop. Corners are given in % of the source size: 0,0 is the top left
 // and 100,100 the bottom right. They can be dragged with the mouse from obs-shader-dock.
 //
+// To let the image go past the source bounds, raise Expand left / right / top / bottom on the
+// filter (or use the dock's expand button): half the width and height on each side fits the
+// whole corner range, -50 to 150 %.
+//
 // Math: the homography H maps the unit square (u,v) to the four corners
 // (Heckbert, "Fundamentals of Texture Mapping", 1989). For each output pixel p it computes
 // uv = H⁻¹·p using the adjugate of H (no need to divide by the determinant: the final
@@ -57,7 +61,7 @@ uniform float edge_soft<
 
 float4 mainImage(VertData v_in) : TARGET
 {
-    float2 S = uv_size;
+    float2 S = 1.0 / uv_pixel_interval;   // source size (uv_size grows with Expand)
     // Corners in pixels, in unit-square order: (0,0) (1,0) (1,1) (0,1)
     float2 p0 = float2(tl_x, tl_y) * 0.01 * S;
     float2 p1 = float2(tr_x, tr_y) * 0.01 * S;
@@ -83,7 +87,7 @@ float4 mainImage(VertData v_in) : TARGET
     float f = p0.y;
 
     // Inverse via the adjugate of [[a b c] [d e f] [g h 1]]
-    float2 p = v_in.uv * S;
+    float2 p = v_in.uv * S;               // with Expand, v_in.uv goes past 0..1 in the margin
     float qx = (e - f * h) * p.x + (c * h - b) * p.y + (b * f - c * e);
     float qy = (f * g - d) * p.x + (a - c * g) * p.y + (c * d - a * f);
     float qw = (d * h - e * g) * p.x + (b * g - a * h) * p.y + (a * e - b * d);

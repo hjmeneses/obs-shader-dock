@@ -3,6 +3,10 @@
 // Perspectiva en Photoshop. Las esquinas se dan en % del tamaño de la fuente: 0,0 es arriba a la
 // izquierda y 100,100 abajo a la derecha. Se pueden mover con el mouse desde obs-shader-dock.
 //
+// Para que la imagen pueda salir del recuadro de la fuente, sube Expandir izquierda / derecha /
+// arriba / abajo en el filtro (o usa el botón de ampliar del dock): con la mitad del ancho y del
+// alto a cada lado caben las esquinas en todo su rango, de -50 a 150 %.
+//
 // Matemática: la homografía H lleva el cuadrado unitario (u,v) a las cuatro esquinas
 // (Heckbert, "Fundamentals of Texture Mapping", 1989). Para cada pixel de salida p se calcula
 // uv = H⁻¹·p con la adjunta de H (no hace falta dividir entre el determinante: la división
@@ -57,7 +61,7 @@ uniform float edge_soft<
 
 float4 mainImage(VertData v_in) : TARGET
 {
-    float2 S = uv_size;
+    float2 S = 1.0 / uv_pixel_interval;   // tamaño de la fuente (uv_size crece con Expandir)
     // Esquinas en pixeles, en el orden del cuadrado unitario: (0,0) (1,0) (1,1) (0,1)
     float2 p0 = float2(tl_x, tl_y) * 0.01 * S;
     float2 p1 = float2(tr_x, tr_y) * 0.01 * S;
@@ -83,7 +87,7 @@ float4 mainImage(VertData v_in) : TARGET
     float f = p0.y;
 
     // Inversa por la adjunta de [[a b c] [d e f] [g h 1]]
-    float2 p = v_in.uv * S;
+    float2 p = v_in.uv * S;               // con Expandir, v_in.uv sale de 0..1 en el margen
     float qx = (e - f * h) * p.x + (c * h - b) * p.y + (b * f - c * e);
     float qy = (f * g - d) * p.x + (a - c * g) * p.y + (c * d - a * f);
     float qw = (d * h - e * g) * p.x + (b * g - a * h) * p.y + (a * e - b * d);

@@ -232,6 +232,7 @@
           progress: typeof s.progress === 'number' ? s.progress : 0,
           autoPlay: typeof s.auto_play === 'boolean' ? s.auto_play : true,
           corners: type === 'corners' ? CORNERS.read(s) : null,
+          expand: type === 'corners' ? CORNERS.readExpand(s) : null,
         });
       }
     }
@@ -255,6 +256,7 @@
     stop: 'M6 6h12v12H6z',
     end: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
     reset: 'M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z',
+    expand: 'M4 4h6v2H7.4l3.3 3.3-1.4 1.4L6 7.4V10H4zm16 0v6h-2V7.4l-3.3 3.3-1.4-1.4L16.6 6H14V4zM4 20v-6h2v2.6l3.3-3.3 1.4 1.4L7.4 18H10v2zm16 0h-6v-2h2.6l-3.3-3.3 1.4-1.4 3.3 3.3V14h2z',
   };
   function iconButton(icon, title, cls) {
     const b = el('button', 'icon-btn' + (cls ? ' ' + cls : ''));
@@ -394,6 +396,11 @@
     const clampPct = (v) => Math.min(150, Math.max(-50, v));
 
     const read = (s) => KEYS.map(([kx, ky], i) => [num(s[kx], DEF[i][0]), num(s[ky], DEF[i][1])]);
+    // Expandir de obs-shaderfilter, en pixeles: margen transparente alrededor de la fuente
+    const readExpand = (s) => ({
+      l: num(s.expand_left, 0), r: num(s.expand_right, 0), t: num(s.expand_top, 0), b: num(s.expand_bottom, 0),
+    });
+    const expanded = (x) => x.l > 0 || x.r > 0 || x.t > 0 || x.b > 0;
     const settingsOf = (c) => {
       const o = {};
       KEYS.forEach(([kx, ky], i) => { o[kx] = r2(c[i][0]); o[ky] = r2(c[i][1]); });
@@ -433,14 +440,25 @@
       canvas.title = t('cpHelp');
       canvas.setAttribute('aria-label', t('cpAria', it.filterName));
       const out = el('div', 'fx3d-out');
+      const grow = iconButton('expand', t('cpExpand'));
       const reset = iconButton('reset', t('cpReset'));
       const foot = el('div', 'fx3d-foot');
-      foot.append(out, reset);
+      foot.append(out, grow, reset);
       wrapEl.append(canvas, foot);
 
       const ctx = canvas.getContext('2d');
       const img = new Image();
       let aspect = 9 / 16;           // alto / ancho de la fuente; se corrige con la captura
+      let base = null;               // tamaño de la fuente en pixeles (captura completa menos Expandir)
+
+      const showGrow = () => {
+        const on = expanded(it.expand);
+        grow.classList.toggle('on', on);
+        grow.disabled = !base && !on;
+        const tip = on ? t('cpShrink') : t('cpExpand');
+        grow.title = tip;
+        grow.setAttribute('aria-label', tip);
+      };
       let hover = -1;
       let drag = null;
 
@@ -465,10 +483,16 @@
         ctx.fillStyle = col('--bg');
         ctx.fillRect(0, 0, s.w, s.h);
 
-        // La captura ya trae el filtro aplicado: ocupa el recuadro de la fuente (0..100 %)
+        // La captura ya trae el filtro aplicado y, con Expandir, también el margen alrededor
         const [x0, y0] = toPx([0, 0], s);
         const [x1, y1] = toPx([100, 100], s);
-        if (img.complete && img.naturalWidth) ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
+        if (img.complete && img.naturalWidth) {
+          const e = it.expand;
+          const m = base ? [-e.l / base.w * 100, -e.t / base.h * 100, 100 + e.r / base.w * 100, 100 + e.b / base.h * 100] : [0, 0, 100, 100];
+          const [ix0, iy0] = toPx([m[0], m[1]], s);
+          const [ix1, iy1] = toPx([m[2], m[3]], s);
+          ctx.drawImage(img, ix0, iy0, ix1 - ix0, iy1 - iy0);
+        }
         ctx.setLineDash([3, 3]);
         ctx.strokeStyle = col('--line');
         ctx.lineWidth = 1;
@@ -513,19 +537,47 @@
         out.textContent = c.map((p) => `${Math.round(p[0])},${Math.round(p[1])}`).join('  ');
       }
 
+      // La primera captura va a tamaño completo para conocer los pixeles de la fuente; las demás, chicas
       let shotTimer = 0;
       function refreshShot(delay) {
         clearTimeout(shotTimer);
         shotTimer = setTimeout(() => {
-          ws.call('GetSourceScreenshot', { sourceName: it.sourceName, imageFormat: 'jpg', imageWidth: 480, imageCompressionQuality: 80 })
-            .then((r) => { if (r.imageData) img.src = r.imageData; })
+          const req = { sourceName: it.sourceName, imageFormat: 'jpg', imageCompressionQuality: 80 };
+          if (base) req.imageWidth = 480;
+          ws.call('GetSourceScreenshot', req)
+            .then((r) => {
+              if (!r.imageData) return;
+              if (!base) {
+                const probe = new Image();
+                probe.onload = () => {
+                  const e = it.expand;
+                  const w = probe.naturalWidth - e.l - e.r, h = probe.naturalHeight - e.t - e.b;
+                  if (w > 0 && h > 0) { base = { w, h }; aspect = h / w; }
+                  showGrow();
+                  img.src = r.imageData;
+                };
+                probe.src = r.imageData;
+              } else {
+                img.src = r.imageData;
+              }
+            })
             .catch(() => { /* sin captura: solo anclas y rejilla */ });
         }, delay);
       }
-      img.onload = () => {
-        if (img.naturalWidth) aspect = img.naturalHeight / img.naturalWidth;
+      img.onload = () => draw();
+
+      // Ampliar el lienzo: media fuente de margen a cada lado, justo el rango de las esquinas (-50..150 %)
+      grow.addEventListener('click', () => {
+        const on = expanded(it.expand);
+        if (!on && !base) return;
+        it.expand = on ? { l: 0, r: 0, t: 0, b: 0 }
+          : { l: Math.round(base.w / 2), r: Math.round(base.w / 2), t: Math.round(base.h / 2), b: Math.round(base.h / 2) };
+        send(it, { expand_left: it.expand.l, expand_right: it.expand.r, expand_top: it.expand.t, expand_bottom: it.expand.b });
+        showGrow();
         draw();
-      };
+        refreshShot(300);
+      });
+      showGrow();
 
       const local = (e) => {
         const b = canvas.getBoundingClientRect();
@@ -617,14 +669,14 @@
       canvas.addEventListener('dblclick', zero);
       reset.addEventListener('click', zero);
 
-      refs.set(it.key, { show: () => { draw(); refreshShot(250); } });
+      refs.set(it.key, { show: () => { showGrow(); draw(); refreshShot(250); } });
       requestAnimationFrame(draw);
       refreshShot(0);
       if (window.ResizeObserver) new ResizeObserver(() => draw()).observe(canvas);
       return wrapEl;
     }
 
-    return { read, pad };
+    return { read, readExpand, pad };
   })();
 
   // ------------------------------------------------------------------ 3D Effect (Exeldro)
@@ -762,6 +814,7 @@
     const s = d.filterSettings || {};
     if (it.type === 'corners') {
       it.corners = CORNERS.read(s);
+      it.expand = CORNERS.readExpand(s);
       const r = refs.get(it.key);
       if (r && r.show) r.show();
       return;
