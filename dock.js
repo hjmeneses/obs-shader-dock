@@ -779,8 +779,22 @@
       area.append(stage);
       const out = el('div', 'fx3d-out');
       const reset = iconButton('reset', t('fx3dReset'));
+      // Un botón por eje: regresa a 0 solo el giro de ese eje
+      const axisBtns = ['x', 'y', 'z'].map((a) => {
+        const b = el('button', 'icon-btn axis-btn');
+        b.type = 'button';
+        b.textContent = a.toUpperCase();
+        b.title = t('fx3dResetAxis', a.toUpperCase());
+        b.setAttribute('aria-label', b.title);
+        b.addEventListener('click', () => {
+          it['r' + a] = 0;
+          show();
+          push(it);
+        });
+        return b;
+      });
       const foot = el('div', 'fx3d-foot');
-      foot.append(out, reset);
+      foot.append(out, ...axisBtns, reset);
       wrapEl.append(area, foot);
 
       const show = () => { readout(it, out); preview(it, card); };
