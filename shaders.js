@@ -40,6 +40,8 @@ window.SHADER_MANIFEST = [
     files: ['liquid-glass.shader'] },
   { repo: 'obs-liquid-glass', label: 'Liquid glass (forma)', label_en: 'Liquid glass (shape)', type: 'continuous',
     files: ['liquid-glass-forma.shader', 'liquid-glass-shape.shader'] },
+  { repo: 'obs-liquid-glass', label: 'Liquid glass (lente)', label_en: 'Liquid glass (lens)', type: 'continuous',
+    files: ['liquid-glass-lente.shader'] },
 
   { repo: 'obs-modern-tv', label: 'Glitch', label_en: 'Glitch', type: 'continuous',
     files: ['glitch.shader'] },
