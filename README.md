@@ -2,7 +2,7 @@
 
 *A browser dock for OBS that finds your shader filters and gives each one play / start / end controls.*
 
-Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-loving-spies, obs-retro-tv, obs-kr36, obs-liquid-glass, obs-modern-tv) en todas tus escenas y fuentes, y te da controles para cada uno sin abrir las propiedades del filtro.
+Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-loving-spies, obs-retro-tv, obs-kr36, obs-liquid-glass, obs-modern-tv) en todas tus escenas y fuentes (o solo en la escena en vivo), y te da controles para cada uno sin abrir las propiedades del filtro.
 
 *[English below](#english)*
 
@@ -27,6 +27,8 @@ Dos pestañas: **Efectos** (secuencias y efectos continuos) y **Geometría** (3D
   - La imagen se actualiza al soltar. Lo que salga del recuadro de la fuente se corta, porque el filtro dibuja en el tamaño de la fuente.
 - La lista se actualiza sola cuando agregas, quitas o renombras filtros, fuentes o escenas. Si cambias el archivo `.shader` de un filtro, usa el botón de actualizar.
 - **Mostrar otros shaders** incluye los filtros *User-defined shader* que no son de estos repos.
+- **Solo escena en vivo** muestra solo los filtros de la escena al aire: los de la escena, sus fuentes, sus grupos y las escenas anidadas dentro de ella, a cualquier profundidad (las fuentes ocultas cuentan). En modo estudio incluye también la escena de vista previa. Si la escena no tiene filtros en esa pestaña, se muestran todos. La lista cambia sola al cambiar de escena.
+- Con ese interruptor apagado, las fuentes de la escena en vivo van primero y marcadas en rojo (**En vivo**); las de la vista previa, en azul.
 - **Idioma**: español o inglés con el selector ES/EN (la primera vez toma el idioma del sistema). Reconoce tanto los shaders en español como sus versiones en inglés de la carpeta `en/` de cada repo.
 
 ## Instalación

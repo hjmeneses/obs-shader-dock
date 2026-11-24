@@ -78,7 +78,18 @@
     font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
     color: var(--muted); background: var(--panel-2);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 6px;
   }
+  .source > h2 .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* Escena al aire (rojo, como el indicador de transmisión) y de vista previa (azul) */
+  .source.on-air { border-color: var(--bad); }
+  .source.in-preview { border-color: var(--accent); }
+  .badge {
+    flex: none; padding: 0 6px; border-radius: 8px; font-size: 10px; line-height: 15px;
+    letter-spacing: .04em; color: #fff;
+  }
+  .on-air .badge { background: var(--bad); }
+  .in-preview .badge { background: var(--accent); }
   .filter { padding: 8px 10px; border-top: 1px solid var(--line); }
   .source > h2 + .filter { border-top: 0; }
   .filter.off .name, .filter.off .controls { opacity: .5; }
@@ -133,6 +144,19 @@
     position: relative;
   }
   .fx3d-card::after { content: ""; position: absolute; top: 4px; left: 4px; width: 10px; height: 10px; border-radius: 2px; background: var(--warn); }
+  /* Con captura: la imagen real ocupa el pad (con la proporción de la fuente) y la tarjeta se vuelve
+     un indicador chico en la esquina */
+  .fx3d-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: none; }
+  /* width: 100% explícito: con aspect-ratio, el max-height se traslada al ancho y una fuente vertical
+     dejaba el pad angosto y pegado a la izquierda. Así el pad ocupa todo el ancho y la imagen va al centro. */
+  .fx3d-pad.has-shot { width: 100%; height: auto; min-height: 90px; max-height: 240px; }
+  .fx3d-pad.has-shot .fx3d-shot { display: block; }
+  .fx3d-pad.has-shot .fx3d-stage {
+    inset: auto 6px 6px auto; width: 56px; height: 40px; perspective: 140px;
+    background: rgba(0,0,0,.45); border-radius: 4px;
+  }
+  .fx3d-pad.has-shot .fx3d-card { width: 34px; height: 19px; }
+  .fx3d-pad.has-shot .fx3d-card::after { top: 2px; left: 2px; width: 5px; height: 5px; }
   .fx3d-foot { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
   .fx3d-out { flex: 1; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .filter.off .fx3d, .filter.off .cp { opacity: .5; }
@@ -154,7 +178,7 @@
   .empty { padding: 24px 12px; text-align: center; color: var(--muted); }
   .empty b { display: block; color: var(--text); margin-bottom: 4px; }
 
-  footer { padding: 4px 10px 10px; color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  footer { padding: 4px 10px 10px; color: var(--muted); font-size: 11px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
   footer label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   footer input { accent-color: var(--accent); margin: 0; }
   footer select { margin-left: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 11px; padding: 1px 2px; }
@@ -212,6 +236,7 @@
 </main>
 
 <footer>
+  <label data-i18n-title="liveOnlyTip"><input type="checkbox" id="live-only"> <span data-i18n="liveOnly">Solo escena en vivo</span></label>
   <label><input type="checkbox" id="show-others"> <span data-i18n="showOthers">Mostrar otros shaders</span></label>
   <select id="lang" data-i18n-title="language" data-i18n-aria="language"><option value="es">ES</option><option value="en">EN</option></select>
 </footer>

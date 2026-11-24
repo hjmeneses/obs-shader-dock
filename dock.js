@@ -11,6 +11,7 @@
     'SourceFilterEnableStateChanged', 'SourceFilterListReindexed',
     'InputCreated', 'InputRemoved', 'InputNameChanged',
     'SceneCreated', 'SceneRemoved', 'SceneNameChanged',
+    'SceneItemCreated', 'SceneItemRemoved',
     'CurrentSceneCollectionChanged',
   ]);
 
@@ -18,6 +19,8 @@
   const t = I18N.t;
   const ws = new ObsWs();
   let items = [];                // filtros encontrados
+  let children = new Map();      // escena o grupo → nombres de las fuentes que contiene
+  const live = { program: null, preview: null };   // escena al aire y, en modo estudio, la de vista previa
   const anims = new Map();       // key → animación en curso
   const refs = new Map();        // key → elementos de la interfaz
   let retryTimer = 0;
@@ -126,8 +129,16 @@
 
   ws.addEventListener('obs-event', (ev) => {
     const d = ev.detail;
+    const e = d.eventData || {};
     if (REFRESH_EVENTS.has(d.eventType)) scheduleRefresh();
-    else if (d.eventType === 'SourceFilterSettingsChanged') onFilterSettings(d.eventData || {});
+    else if (d.eventType === 'SourceFilterSettingsChanged') onFilterSettings(e);
+    // Cambiar de escena no cambia qué filtros existen: basta con volver a dibujar la lista
+    else if (d.eventType === 'CurrentProgramSceneChanged') { live.program = e.sceneName; render(); }
+    else if (d.eventType === 'CurrentPreviewSceneChanged') { live.preview = e.sceneName; render(); }
+    else if (d.eventType === 'StudioModeStateChanged') {
+      if (e.studioModeEnabled) scheduleRefresh();   // refresh trae la escena de vista previa
+      else { live.preview = null; render(); }
+    }
   });
 
   // ------------------------------------------------------------------ ventana de conexión
@@ -165,6 +176,9 @@
   const showOthers = $('show-others');
   showOthers.checked = load('showOthers', false);
   showOthers.addEventListener('change', () => { save('showOthers', showOthers.checked); render(); });
+  const liveOnly = $('live-only');
+  liveOnly.checked = load('liveOnly', false);
+  liveOnly.addEventListener('change', () => { save('liveOnly', liveOnly.checked); if (ws.connected) render(); });
 
   // Idioma: cambia los textos fijos y vuelve a pintar la lista o el mensaje actual
   const langSel = $('lang');
@@ -187,26 +201,40 @@
   async function refresh() {
     if (!ws.connected) return;
     let names = [];
+    let sceneNames = [];
+    let groupNames = [];
     try {
       const [scenes, inputs, groups] = await Promise.all([
         ws.call('GetSceneList'),
         ws.call('GetInputList'),
         ws.call('GetGroupList').catch(() => ({ groups: [] })),
       ]);
-      names = [
-        ...scenes.scenes.slice().reverse().map((s) => s.sceneName),   // en el orden de OBS
-        ...(groups.groups || []),
-        ...inputs.inputs.map((i) => i.inputName),
-      ];
+      sceneNames = scenes.scenes.slice().reverse().map((s) => s.sceneName);   // en el orden de OBS
+      groupNames = groups.groups || [];
+      live.program = scenes.currentProgramSceneName || null;
+      live.preview = scenes.currentPreviewSceneName || null;   // null si el modo estudio está apagado
+      names = [...sceneNames, ...groupNames, ...inputs.inputs.map((i) => i.inputName)];
     } catch {
       return;
     }
     names = [...new Set(names)];
 
-    const lists = await Promise.all(names.map((sourceName) =>
-      ws.call('GetSourceFilterList', { sourceName })
-        .then((r) => ({ sourceName, filters: r.filters || [] }))
-        .catch(() => ({ sourceName, filters: [] }))));
+    // Qué contiene cada escena y cada grupo, para saber qué filtros están en la escena en vivo.
+    // Las fuentes ocultas cuentan: siguen en la escena y el filtro se puede preparar.
+    const contents = (request, name) => ws.call(request, { sceneName: name })
+      .then((r) => [name, (r.sceneItems || []).map((s) => s.sourceName)])
+      .catch(() => [name, []]);
+    const [lists, inside] = await Promise.all([
+      Promise.all(names.map((sourceName) =>
+        ws.call('GetSourceFilterList', { sourceName })
+          .then((r) => ({ sourceName, filters: r.filters || [] }))
+          .catch(() => ({ sourceName, filters: [] })))),
+      Promise.all([
+        ...sceneNames.map((n) => contents('GetSceneItemList', n)),
+        ...groupNames.map((n) => contents('GetGroupSceneItemList', n)),
+      ]),
+    ]);
+    children = new Map(inside);
 
     const next = [];
     for (const { sourceName, filters } of lists) {
@@ -300,18 +328,51 @@
   }
   setTab(tab);
 
-  function updateCounts(visible) {
-    const geo = visible.filter(isGeo).length;
-    $('count-fx').textContent = ws.connected ? String(visible.length - geo) : '';
+  function updateCounts(fx, geo) {
+    $('count-fx').textContent = ws.connected ? String(fx) : '';
     $('count-geo').textContent = ws.connected ? String(geo) : '';
+  }
+
+  // Todo lo que se ve desde una escena: ella misma, sus fuentes, y lo que hay dentro de sus grupos
+  // y de las escenas anidadas, a cualquier profundidad.
+  function reach(root) {
+    const seen = new Set();
+    const stack = root ? [root] : [];
+    while (stack.length) {
+      const n = stack.pop();
+      if (seen.has(n)) continue;
+      seen.add(n);
+      for (const c of children.get(n) || []) stack.push(c);
+    }
+    return seen;
   }
 
   function render() {
     refs.clear();
     const list = $('list');
-    const all = items.filter((i) => i.own || showOthers.checked);
-    updateCounts(all);
-    const visible = all.filter((i) => isGeo(i) === (tab === 'geo'));
+    const onAir = reach(live.program);
+    const inPreview = reach(live.preview);
+    for (const n of onAir) inPreview.delete(n);
+    const rank = (i) => (onAir.has(i.sourceName) ? 0 : inPreview.has(i.sourceName) ? 1 : 2);
+
+    // Con "Solo escena en vivo", cada pestaña muestra lo de la escena al aire (y la de vista previa).
+    // Si esa escena no tiene nada en la pestaña, se muestra todo en vez de dejarla vacía.
+    const pool = items.filter((i) => i.own || showOthers.checked);
+    const forTab = (geo) => {
+      const all = pool.filter((i) => isGeo(i) === geo);
+      if (liveOnly.checked) {
+        const mine = all.filter((i) => rank(i) < 2);
+        if (mine.length) return mine;
+      }
+      return all;
+    };
+    const fxList = forTab(false);
+    const geoList = forTab(true);
+    updateCounts(fxList.length, geoList.length);
+    // La escena en vivo primero, luego la de vista previa (sort es estable: lo demás no cambia de orden)
+    const visible = (tab === 'geo' ? geoList : fxList).slice().sort((a, b) => rank(a) - rank(b));
+    // La marca solo sirve si distingue algo: si todo lo visible está al aire, no se pone
+    const mark = !visible.every((i) => rank(i) === 0);
     if (!visible.length) {
       if (tab === 'geo') {
         showMessage('noGeometry', 'addGeometry');
@@ -331,8 +392,14 @@
     const frag = document.createDocumentFragment();
     for (const [sourceName, group] of groups) {
       const card = el('section', 'source');
-      const h = el('h2', null, sourceName);
+      const h = el('h2');
       h.title = sourceName;
+      h.append(el('span', 'title', sourceName));
+      const r = rank(group[0]);
+      if (mark && r < 2) {
+        card.classList.add(r === 0 ? 'on-air' : 'in-preview');
+        h.append(el('span', 'badge', t(r === 0 ? 'onAir' : 'inPreview')));
+      }
       card.append(h);
       for (const it of group) card.append(renderFilter(it));
       frag.append(card);
@@ -776,7 +843,11 @@
       const stage = el('div', 'fx3d-stage');
       const card = el('div', 'fx3d-card');
       stage.append(card);
-      area.append(stage);
+      // Captura de la fuente. OBS la entrega con los filtros aplicados, o sea, ya girada: por eso va
+      // de fondo tal cual (es lo que sale al aire) y la tarjeta queda como indicador de orientación.
+      const shot = el('img', 'fx3d-shot');
+      shot.alt = '';
+      area.append(shot, stage);
       const out = el('div', 'fx3d-out');
       const reset = iconButton('reset', t('fx3dReset'));
       // Un botón por eje: regresa a 0 solo el giro de ese eje
@@ -790,6 +861,7 @@
           it['r' + a] = 0;
           show();
           push(it);
+          refreshShot(150);
         });
         return b;
       });
@@ -799,7 +871,27 @@
 
       const show = () => { readout(it, out); preview(it, card); };
       show();
-      refs.set(it.key, { show });
+
+      // Mientras se arrastra se piden capturas seguidas, pero nunca dos a la vez: si llega otra
+      // petición con una en camino, se pide una sola más al terminar. Así va al ritmo que OBS aguanta.
+      // PNG para conservar la transparencia: alrededor de la fuente girada se ve el pad, no negro.
+      let busy = false, again = false, shotTimer = 0;
+      function grab() {
+        if (busy) { again = true; return; }
+        busy = true;
+        ws.call('GetSourceScreenshot', { sourceName: it.sourceName, imageFormat: 'png', imageWidth: 360 })
+          .then((r) => { if (r.imageData) shot.src = r.imageData; })
+          .catch(() => { /* sin captura: queda la tarjeta de referencia */ })
+          .finally(() => { busy = false; if (again) { again = false; grab(); } });
+      }
+      const refreshShot = (delay) => { clearTimeout(shotTimer); shotTimer = setTimeout(grab, delay); };
+      shot.onload = () => {
+        if (!shot.naturalWidth) return;
+        area.style.aspectRatio = `${shot.naturalWidth} / ${shot.naturalHeight}`;
+        area.classList.add('has-shot');
+      };
+      refs.set(it.key, { show: () => { show(); refreshShot(150); } });
+      refreshShot(0);
 
       let last = null;
       area.addEventListener('pointerdown', (e) => {
@@ -825,8 +917,14 @@
         }
         show();
         push(it);
+        grab();
       });
-      const end = () => { last = null; it.dragging = false; area.classList.remove('active'); };
+      // Al soltar, una captura más con el valor final (la del arrastre pudo salir antes de que OBS lo aplicara)
+      const end = () => {
+        if (!last) return;
+        last = null; it.dragging = false; area.classList.remove('active');
+        refreshShot(150);
+      };
       area.addEventListener('pointerup', end);
       area.addEventListener('pointercancel', end);
       area.addEventListener('wheel', (e) => {
@@ -834,12 +932,14 @@
         it.pz += (e.deltaY < 0 ? 1 : -1) * WHEEL_Z;
         show();
         push(it);
+        refreshShot(120);
       }, { passive: false });
       const zero = () => {
         it.rx = it.ry = it.rz = 0;
         it.px = it.py = it.pz = 0;
         show();
         push(it);
+        refreshShot(150);
       };
       area.addEventListener('dblclick', zero);
       reset.addEventListener('click', zero);
@@ -854,6 +954,7 @@
         else it.rx = wrap(it.rx + (k === 'ArrowDown' ? step : -step));
         show();
         push(it);
+        refreshShot(120);
       });
       return wrapEl;
     }

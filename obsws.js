@@ -3,8 +3,10 @@
 (function () {
   'use strict';
 
-  // Eventos que pedimos: Config (2) | Scenes (4) | Inputs (8) | Filters (32)
-  const EVENTS = 2 | 4 | 8 | 32;
+  // Eventos que pedimos: Config (2) | Scenes (4) | Inputs (8) | Filters (32) | SceneItems (128) | Ui (1024)
+  // SceneItems: se agregó o quitó una fuente de una escena. Ui: se activó o desactivó el modo estudio.
+  // Ninguno es de alto volumen (los cambios de posición de las fuentes van en otra categoría).
+  const EVENTS = 2 | 4 | 8 | 32 | 128 | 1024;
 
   async function sha256b64(text) {
     const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
