@@ -16,7 +16,7 @@ Dos pestañas: **Efectos** (secuencias y efectos continuos) y **Geometría** (3D
   - Una barra para mover el Progreso a mano, y la casilla **Bucle**.
 - **Efectos continuos** (liquid glass, glitch, títulos con siluetas): interruptor para encender y apagar.
 - **Transiciones** (emblema): no aparecen, porque son stingers y no filtros.
-- **3D Effect** (el filtro [3D Effect](https://github.com/exeldro/obs-3d-effect) de Exeldro): un pad para girarlo con el mouse.
+- **3D Effect** (el filtro [3D Effect](https://github.com/exeldro/obs-3d-effect) de Exeldro): un pad para girarlo con el mouse. El pad muestra la imagen de la fuente tal como sale al aire, ya girada, y se actualiza mientras arrastras; la tarjeta chica de la esquina indica la orientación.
   - Arrastrar gira en X/Y; con **Shift** gira en Z; con **Ctrl** lo mueve; la rueda lo acerca o aleja (posición Z).
   - Doble clic o el botón ↺ lo regresan a 0. Con el pad enfocado, las flechas giran de 5° en 5°.
   - Si mueves los sliders del filtro en OBS, el pad se pone al día.
@@ -77,7 +77,8 @@ A custom browser dock for **OBS Studio** that scans every scene and source for s
 - **Sequences**: play once over the filter's duration (stops the loop), jump to start or end, scrub the progress bar, toggle loop.
 - **Continuous effects**: on/off switch.
 - **Transitions** (stingers) are not listed.
-- **3D Effect** (Exeldro's [3D Effect](https://github.com/exeldro/obs-3d-effect) filter): a pad to rotate it with the mouse. Drag rotates X/Y, **Shift** rotates Z, **Ctrl** moves it, the wheel changes Z position; double-click or ↺ resets it. Changes made with the filter's sliders in OBS show up in the pad.
+- **3D Effect** (Exeldro's [3D Effect](https://github.com/exeldro/obs-3d-effect) filter): a pad to rotate it with the mouse. Drag rotates X/Y, **Shift** rotates Z, **Ctrl** moves it, the wheel changes Z position; double-click or ↺ resets it. Changes made with the filter's sliders in OBS show up in the pad. The pad shows the source as it goes on air (already rotated), refreshed while you drag; the small card in the corner shows the orientation.
+- **Live scene only**: lists just the filters in the program scene, including its groups and nested scenes (and the preview scene in Studio Mode). If the scene has none in that tab, everything is shown. With it off, live sources go first, marked red; preview sources are marked blue.
 - **Perspective** (`shaders/en/perspective.shader`): corner pin, like Distort / Perspective in Photoshop. The dock shows the source image with four anchors: drag a corner freely, **Shift**-drag for perspective (the neighbouring corner mirrors it), drag inside or **Alt** to move everything, double-click or ↺ to reset. Anything outside the source bounds is clipped.
 
 The UI is available in Spanish and English (ES/EN selector; the first time it follows the system language), and it recognizes both the Spanish shaders and their English versions from each repo's `en/` folder.
