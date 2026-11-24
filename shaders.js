@@ -45,6 +45,8 @@ window.SHADER_MANIFEST = [
 
   { repo: 'obs-modern-tv', label: 'Glitch', label_en: 'Glitch', type: 'continuous',
     files: ['glitch.shader'] },
+  { repo: 'obs-modern-tv', label: 'Trazo de luz', label_en: 'Light trace', type: 'sequence', duration: 4,
+    files: ['trazo-de-luz.shader', 'light-trace.shader'] },
 
   { repo: 'obs-shader-dock', label: 'Perspectiva', label_en: 'Perspective', type: 'corners',
     files: ['perspectiva.shader', 'perspective.shader'] },
