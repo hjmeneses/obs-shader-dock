@@ -44,8 +44,10 @@
 
   // ------------------------------------------------------------------ manifiesto
   const byFile = new Map();
+  const byKind = new Map();   // filtros nativos (plugins), por su tipo
   for (const entry of window.SHADER_MANIFEST || []) {
-    for (const f of entry.files) byFile.set(f.toLowerCase(), entry);
+    for (const f of entry.files || []) byFile.set(f.toLowerCase(), entry);
+    for (const k of entry.kinds || []) byKind.set(k, entry);
   }
   const baseName = (path) => (path || '').split(/[\\/]/).pop().toLowerCase();
 
@@ -243,10 +245,11 @@
           next.push(FX3D.item(sourceName, f));
           continue;
         }
-        if (!String(f.filterKind).startsWith('shader_filter')) continue;
+        const native = byKind.get(f.filterKind) || null;
+        if (!native && !String(f.filterKind).startsWith('shader_filter')) continue;
         const s = f.filterSettings || {};
-        const file = s.from_file ? baseName(s.shader_file_name) : '';
-        const entry = file ? byFile.get(file) : null;
+        const file = !native && s.from_file ? baseName(s.shader_file_name) : '';
+        const entry = native || (file ? byFile.get(file) : null);
         if (entry && entry.type === 'stinger') continue;
         const type = entry ? entry.type : ('progress' in s ? 'sequence' : 'continuous');
         next.push({

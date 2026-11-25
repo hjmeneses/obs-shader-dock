@@ -12,6 +12,11 @@
 // defecto del shader, por si el filtro no lo tiene guardado en sus ajustes.
 // "files" lists the Spanish file and the one in the en/ folder. "duration" is the shader
 // default, used when the filter has not stored it.
+//
+// "kinds" reconoce filtros nativos (plugins) por su tipo de filtro, en lugar de un archivo.
+// Deben usar los mismos ajustes: progress (0..100), auto_play y duration.
+// "kinds" matches native filters (plugins) by filter kind instead of a file; they must use
+// the same settings: progress (0..100), auto_play and duration.
 window.SHADER_MANIFEST = [
   { repo: 'obs-loving-spies', label: 'Cañón', label_en: 'Gun barrel', type: 'sequence', duration: 10,
     files: ['canon.shader', 'gun-barrel.shader'] },
@@ -47,6 +52,9 @@ window.SHADER_MANIFEST = [
     files: ['glitch.shader'] },
   { repo: 'obs-modern-tv', label: 'Trazo de luz', label_en: 'Light trace', type: 'sequence', duration: 4,
     files: ['trazo-de-luz.shader', 'light-trace.shader'] },
+
+  { repo: 'light-trace', label: 'Trazo de luz (plugin)', label_en: 'Light Trace (plugin)', type: 'sequence', duration: 3,
+    kinds: ['light_trace_filter'] },
 
   { repo: 'obs-shader-dock', label: 'Perspectiva', label_en: 'Perspective', type: 'corners',
     files: ['perspectiva.shader', 'perspective.shader'] },
