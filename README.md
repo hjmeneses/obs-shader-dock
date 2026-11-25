@@ -4,6 +4,8 @@
 
 Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-loving-spies, obs-retro-tv, obs-kr36, obs-liquid-glass, obs-modern-tv) en todas tus escenas y fuentes (o solo en la escena en vivo), y te da controles para cada uno sin abrir las propiedades del filtro.
 
+> **¿Prefieres un plugin?** [Shader Dock](https://github.com/hjmeneses/shader-dock) es la versión nativa de este dock: se instala como plugin, no necesita WebSocket ni contraseña, toma los colores del tema de OBS y además controla [3D Effect 2](https://github.com/hjmeneses/obs-3d-effect), BFX 3D Rotation y [Light Trace](https://github.com/hjmeneses/light-trace). Este dock de navegador sigue funcionando y lee la misma lista de shaders.
+
 *[English below](#english)*
 
 ## Qué hace
@@ -71,6 +73,8 @@ Requiere OBS 28 o posterior (obs-websocket 5 integrado) y el plugin [obs-shaderf
 ---
 
 ## English
+
+> **Prefer a plugin?** [Shader Dock](https://github.com/hjmeneses/shader-dock) is the native version of this dock: installed as a plugin, no WebSocket or password, follows the OBS theme, and also drives [3D Effect 2](https://github.com/hjmeneses/obs-3d-effect), BFX 3D Rotation and [Light Trace](https://github.com/hjmeneses/light-trace). This browser dock keeps working and reads the same shader list.
 
 A custom browser dock for **OBS Studio** that scans every scene and source for shader filters from my repos and gives each one controls, split into two tabs, **Effects** and **Geometry**:
 
