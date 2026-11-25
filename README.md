@@ -8,6 +8,10 @@ Dock para **OBS Studio** que encuentra los filtros de shader de mis repos (obs-l
 
 *[English below](#english)*
 
+<img src="images/dock.png" alt="El dock de navegador en la pestaña Geometría, con los pads de Perspectiva y de 3D Effect" width="380">
+
+<sub>La pestaña Geometría con los pads de Perspectiva y de 3D Effect. / The Geometry tab with the Perspective and 3D Effect pads.</sub>
+
 ## Qué hace
 
 Dos pestañas: **Efectos** (secuencias y efectos continuos) y **Geometría** (3D Effect y Perspectiva). Cada una muestra cuántos filtros tiene y el dock recuerda la última que abriste.
