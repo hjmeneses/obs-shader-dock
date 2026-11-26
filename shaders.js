@@ -52,6 +52,8 @@ window.SHADER_MANIFEST = [
     files: ['glitch.shader'] },
   { repo: 'obs-modern-tv', label: 'Trazo de luz', label_en: 'Light trace', type: 'sequence', duration: 4,
     files: ['trazo-de-luz.shader', 'light-trace.shader'] },
+  { repo: 'obs-modern-tv', label: 'Gargantúa', label_en: 'Gargantua', type: 'continuous',
+    files: ['gargantua.shader'] },
 
   { repo: 'light-trace', label: 'Trazo de luz (plugin)', label_en: 'Light Trace (plugin)', type: 'sequence', duration: 3,
     kinds: ['light_trace_filter'] },
